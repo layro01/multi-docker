@@ -29,7 +29,7 @@ jobs:
           name: Build and run unit tests
           command: |
             docker build --cache-from=app -t layro01/react-test -f ./client/Dockerfile.dev ./client
-            docker run layro01/react-test npm test -- --coverage
+            docker run -e CI=true layro01/react-test npm test
       - run:
           name: Build production image
           command: |
