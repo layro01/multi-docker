@@ -9,29 +9,53 @@ jobs:
     # Specify the execution environment. You can specify an image from Dockerhub or use one of our Convenience Images from CircleCI's Developer Hub.
     # See: https://circleci.com/docs/2.0/configuration-reference/#docker-machine-macos-windows-executor
     docker:
-      - image: cimg/base:stable
+      - image: docker:17.05.0-ce-git
     # Add steps to the job
     # See: https://circleci.com/docs/2.0/configuration-reference/#steps
     steps:
       - checkout
+      - setup_remote_docker
+      - restore_cache:
+          keys:
+            - v1-{{ .Branch }}
+          paths:
+            - /caches/app.tar
       - run:
-          name: "Build and run unit tests"
+          name: Load Docker image layer cache
           command: |
-            docker build -t layro01/react-test -f ./client/Dockerfile.dev ./client
+            set +o pipefail
+            docker load -i /caches/app.tar | true
+      - run:
+          name: Build and run unit tests
+          command: |
+            docker build --cache-from=app -t layro01/react-test -f ./client/Dockerfile.dev ./client
             docker run layro01/react-test npm test -- --coverage
       - run:
-          name: "Build production image"
+          name: Build production image
           command: |
-            docker build -t layro01/multi-client ./client
-            docker build -t layro01/multi-nginx ./nginx
-            docker build -t layro01/multi-server ./server
-            docker build -t layro01/multi-worker ./worker
+            docker build --cache-from=app -t layro01/multi-client ./client
+            docker build --cache-from=app -t layro01/multi-nginx ./nginx
+            docker build --cache-from=app -t layro01/multi-server ./server
+            docker build --cache-from=app -t layro01/multi-worker ./worker
+          when: on_success
+      - run:
+          name: Push production images to Dockerhub
+          command: |
             echo $DOCKERHUB_PASSWORD | docker login -u "$DOCKERHUB_USERNAME" --password-stdin
             docker push -t layro01/multi-client
             docker push -t layro01/multi-nginx ./nginx
             docker push -t layro01/multi-server ./server
             docker push -t layro01/multi-worker ./worker
           when: on_success
+      - run:
+          name: Save Docker image layer cache
+          command: |
+            mkdir -p /caches
+            docker save -o /caches/app.tar app
+      - save_cache:
+          key: v1-{{ .Branch }}-{{ epoch }}
+          paths:
+            - /caches/app.tar            
 
 # Invoke jobs via workflows
 # See: https://circleci.com/docs/2.0/configuration-reference/#workflows
