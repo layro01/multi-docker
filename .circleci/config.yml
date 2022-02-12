@@ -45,6 +45,7 @@ jobs:
       - run:
           name: Build production image
           command: |
+            echo Container Version: $CONTAINER_VERSION
             docker build --cache-from=multi-client -t layro01/multi-client:$CONTAINER_VERSION ./client
             docker build --cache-from=multi-nginx -t layro01/multi-nginx:$CONTAINER_VERSION ./nginx
             docker build --cache-from=multi-server -t layro01/multi-server:$CONTAINER_VERSION ./server
